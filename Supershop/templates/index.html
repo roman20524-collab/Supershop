@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Электронный Магазин — Каталог и История</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col" x-data="storeApp()">
+
+    <!-- Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl font-black bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">NexusStore</span>
+                <span class="text-xs bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full border border-slate-700">Демо-магазин</span>
+            </div>
+
+            <!-- User Selector / Profile -->
+            <div class="flex items-center gap-3 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700">
+                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <div class="text-sm">
+                    <span class="text-slate-400 text-xs block">Покупатель:</span>
+                    <select x-model="currentUser" class="bg-transparent text-white font-medium focus:outline-none cursor-pointer">
+                        <template x-for="user in users" :key="user">
+                            <option :value="user" class="bg-slate-800 text-white" x-text="user"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <nav class="flex flex-col sm:flex-row gap-2">
+                <button @click="activeTab = 'catalog'" 
+                        :class="activeTab === 'catalog' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'"
+                        class="px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    Каталог (30)
+                </button>
+                <button @click="activeTab = 'history'" 
+                        :class="activeTab === 'history' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'"
+                        class="px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 relative">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    История покупок
+                    <span class="absolute -top-1 -right-1 bg-indigo-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold" x-text="history.length"></span>
+                </button>
+                
+                <!-- AI Button -->
+                <button @click="showRecommendation()" 
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    🤖 AI‑Рекомендация
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-8 flex-grow w-full">
+
+        <!-- CATALOG VIEW -->
+        <div x-show="activeTab === 'catalog'" class="space-y-6">
+            
+            <!-- Controls & Filters -->
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <!-- Search -->
+                <div class="relative w-full md:w-80">
+                    <svg class="w-5 h-5 absolute left-3 top-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" x-model="searchQuery" placeholder="Поиск товаров или запрос к AI..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                </div>
+
+                <!-- Categories -->
+                <div class="flex flex-wrap gap-2 w-full md:w-auto items-center">
+                    <button @click="selectedCategory = 'Все'" 
+                            :class="selectedCategory === 'Все' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                        Все категории
+                    </button>
+                    <template x-for="cat in categories" :key="cat">
+                        <button @click="selectedCategory = cat" 
+                                :class="selectedCategory === cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                                x-text="cat">
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Product Grid (30 items) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                <template x-for="product in filteredProducts" :key="product.id">
+                    <div class="bg-white rounded-2xl shadow-sm hover:shadow-md transition border border-slate-100 flex flex-col overflow-hidden group">
+                        <!-- Image / Badge placeholder -->
+                        <div class="h-40 bg-gradient-to-br from-slate-100 to-slate-200 relative flex items-center justify-center overflow-hidden">
+                            <span class="text-4xl group-hover:scale-110 transition duration-300" x-text="product.emoji"></span>
+                            <span class="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-slate-700 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-xs" x-text="product.category"></span>
+                        </div>
+
+                        <!-- Card Content -->
+                        <div class="p-4 flex flex-col flex-grow justify-between gap-4">
+                            <div>
+                                <h3 class="font-bold text-slate-800 text-sm mb-1 line-clamp-1" x-text="product.name"></h3>
+                                <p class="text-xs text-slate-500 line-clamp-2" x-text="product.description"></p>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                                <div>
+                                    <span class="text-[10px] text-slate-400 block">Цена</span>
+                                    <span class="font-black text-slate-900 text-sm" x-text="product.price.toLocaleString() + ' ₸'"></span>
+                                </div>
+                                <button @click="buyProduct(product)" 
+                                        class="bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-xl text-xs font-medium transition flex items-center justify-center shadow-sm hover:shadow-blue-500/20"
+                                        title="Купить / Добавить в историю">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Empty state -->
+            <div x-show="filteredProducts.length === 0" class="text-center py-16 bg-white rounded-2xl border border-slate-100">
+                <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <p class="text-slate-500 font-medium">Товары не найдены</p>
+                <p class="text-xs text-slate-400 mt-1">Попробуйте изменить поисковый запрос или категорию</p>
+            </div>
+        </div>
+
+        <!-- HISTORY VIEW -->
+        <div x-show="activeTab === 'history'" class="space-y-6">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">История взаимодействий и покупок</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Полный журнал логов: кто купил товар, название и категорию.</p>
+                    </div>
+                    <button @click="clearHistory()" class="text-xs text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg font-medium transition">
+                        Очистить историю
+                    </button>
+                </div>
+
+                <!-- History Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-100 text-xs text-slate-400 uppercase tracking-wider">
+                                <th class="py-3 px-4 font-semibold">#</th>
+                                <th class="py-3 px-4 font-semibold">Пользователь</th>
+                                <th class="py-3 px-4 font-semibold">Товар</th>
+                                <th class="py-3 px-4 font-semibold">Категория</th>
+                                <th class="py-3 px-4 font-semibold">Цена</th>
+                                <th class="py-3 px-4 font-semibold text-right">Время</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 text-sm">
+                            <template x-for="(item, index) in history" :key="item.id">
+                                <tr class="hover:bg-slate-50/80 transition">
+                                    <td class="py-3 px-4 text-slate-400 font-mono text-xs" x-text="index + 1"></td>
+                                    <td class="py-3 px-4 font-medium text-slate-900 flex items-center gap-2">
+                                        <span class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold" x-text="item.user.charAt(0)"></span>
+                                        <span x-text="item.user"></span>
+                                    </td>
+                                    <td class="py-3 px-4 text-slate-800 font-medium">
+                                        <span class="mr-2" x-text="item.emoji"></span>
+                                        <span x-text="item.productName"></span>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <span class="bg-slate-100 text-slate-700 text-xs px-2.5 py-1 rounded-full font-medium" x-text="item.category"></span>
+                                    </td>
+                                    <td class="py-3 px-4 font-semibold text-slate-900" x-text="item.price.toLocaleString() + ' ₸'"></td>
+                                    <td class="py-3 px-4 text-right text-xs text-slate-400 font-mono" x-text="item.time"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+
+                    <!-- Empty History State -->
+                    <div x-show="history.length === 0" class="text-center py-16">
+                        <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <p class="text-slate-500 font-medium">История пока пуста</p>
+                        <p class="text-xs text-slate-400 mt-1">Перейдите в каталог и совершите покупку любого товара</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div x-show="notification.show" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-4"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-4"
+         class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center gap-3 z-50 border border-slate-800">
+        <div class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">✓</div>
+        <div>
+            <p class="text-xs font-semibold text-slate-300">Товар добавлен в историю!</p>
+            <p class="text-sm font-bold text-white" x-text="notification.text"></p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-100 py-6 text-center text-xs text-slate-400 mt-auto">
+        <p>NexusStore Demo — 30 товаров, каталог и динамическая история транзакций.</p>
+    </footer>
+
+    <!-- Script Application Logic -->
+    <script>
+        function storeApp() {
+            return {
+                activeTab: 'catalog',
+                currentUser: 'Роман',
+                users: ['Роман', 'Алексей', 'Елена', 'Мария', 'Иван'],
+                searchQuery: '',
+                selectedCategory: 'Все',
+                notification: { show: false, text: '' },
+                categories: ['Электроника', 'Одежда', 'Дом и уюты', 'Спорт', 'Книги'],
+
+                products: [
+                    { id: 1, name: 'Смартфон Nexus Pro 5G', category: 'Электроника', price: 299900, emoji: '📱', description: 'Флагманский смартфон с камерой 108 МП и AMOLED экраном 120Гц.' },
+                    { id: 2, name: 'Беспроводные наушники AirBeat', category: 'Электроника', price: 49900, emoji: '🎧', description: 'Активное шумоподавление и 30 часов автономной работы.' },
+                    { id: 3, name: 'Ультрабук Aero 14"', category: 'Электроника', price: 450000, emoji: '💻', description: 'Мощный ноутбук для работы, программирования и графики.' },
+                    { id: 4, name: 'Смарт-часы Chrono Sport', category: 'Электроника', price: 65000, emoji: '⌚', description: 'Мониторинг пульса, кислорода в крови, GPS и NFC.' },
+                    { id: 5, name: 'Планшет Tab Ultra 11"', category: 'Электроника', price: 185000, emoji: '📑', description: 'Идеален для учебы, рисования и просмотра фильмов.' },
+                    { id: 6, name: 'Портативная колонка BassBox', category: 'Электроника', price: 28000, emoji: '🔊', description: 'Влагозащищенная колонка с мощным басом и подсветкой.' },
+                    { id: 7, name: 'Худи Oversize Basic', category: 'Одежда', price: 21900, emoji: '🧥', description: 'Теплое хлопковое худи свободного кроя с начесом.' },
+                    { id: 8, name: 'Кроссовки Urban Runner', category: 'Одежда', price: 38500, emoji: '👟', description: 'Легкие и амортизирующие кроссовки для города.' },
+                    { id: 9, name: 'Джинсы Regular Fit', category: 'Одежда', price: 24000, emoji: '👖', description: 'Классические комфортные джинсы из качественного денима.' },
+                    { id: 10, name: 'Куртка-бомбер утепленная', category: 'Одежда', price: 54000, emoji: '🧥', description: 'Стильная демисезонная куртка с ветрозащитой.' },
+                    { id: 11, name: 'Футболка Cotton Classic', category: 'Одежда', price: 8900, emoji: '👕', description: 'Базовая футболка из 100% органического хлопка.' },
+                    { id: 12, name: 'Рюкзак городской Stealth', category: 'Одежда', price: 29900, emoji: '🎒', description: 'Рюкзак с отделением для ноутбука и защитой от влаги.' },
+                    { id: 13, name: 'Кофемашина Barista Home', category: 'Дом и уюты', price: 125000, emoji: '☕', description: 'Автоматическая кофемашина для эспрессо и капучино.' },
+                    { id: 14, name: 'Робот-пылесос CleanBot', category: 'Дом и уюты', price: 98000, emoji: '🤖', description: 'Сухая и влажная уборка с построением карты комнат.' },
+                    { id: 15, name: 'Настольная LED лампа', category: 'Дом и уюты', price: 14500, emoji: '💡', description: 'Регулировка яркости и цветовой температуры для чтения.' },
+                    { id: 16, name: 'Увлажнитель воздуха MistMaster', category: 'Дом и уюты', price: 22000, emoji: '💧', description: 'Тихий ультразвуковой увлажнитель с ароматерапией.' },
+                    { id: 17, name: 'Набор керамической посуды', category: 'Дом и уюты', price: 32000, emoji: '🍽️', description: 'Элегантный набор посуды на 4 персоны (16 предметов).' },
+                    { id: 18, name: 'Электрочайник SmartTemp', category: 'Дом и уюты', price: 19900, emoji: '🫖', description: 'Чайник с поддержанием температуры и терморегулятором.' },
+                    { id: 19, name: 'Набор гантелей разборных', category: 'Спорт', price: 42000, emoji: '🏋️', description: 'Универсальные гантели для домашних тренировок.' },
+                    { id: 20, name: 'Фитнес-коврик толстый', category: 'Спорт', price: 9500, emoji: '🧘', description: 'Нескользящий коврик для йоги, фитнеса и растяжки.' },
+                    { id: 21, name: 'Велосипед горный Trail 29', category: 'Спорт', price: 210000, emoji: '🚲', description: 'Алюминиевая рама, 24 скорости, дисковые тормоза.' },
+                    { id: 22, name: 'Скакалка со счетчиком калорий', category: 'Спорт', price: 5500, emoji: '⚡', description: 'Электронная скакалка для кардио и похудения.' },
+                    { id: 23, name: 'Бутылка для воды sport 1L', category: 'Спорт', price: 4900, emoji: '🍼', description: 'Прочный тритановый спортивный шейкер с мерной шкалой.' },
+                    { id: 24, name: 'Эспандеры резиновые (набор)', category: 'Спорт', price: 7900, emoji: '🎯', description: '5 уровней сопротивления для фитнеса и реабилитации.' },
+                    { id: 25, name: 'Чистый код (Р. Мартин)', category: 'Книги', price: 13500, emoji: '📘', description: 'Энциклопедия профессионального мастерства разработки ПО.' },
+                    { id: 26, name: 'Паттерны проектирования', category: 'Книги', price: 15900, emoji: '📕', description: 'Классическое руководство по архитектуре приложений.' },
+                    { id: 27, name: 'Искусство войны (Сунь Цзы)', category: 'Книги', price: 6500, emoji: '📙', description: 'Древний трактат о стратегии, тактике и философии.' },
+                    { id: 28, name: 'Алгебра разума (Нейросети)', category: 'Книги', price: 18000, emoji: '🧠', description: 'Современное руководство по машинному обучению и ИИ.' },
+                    { id: 29, name: 'Психология влияния (Р. Чалдини)', category: 'Книги', price: 9900, emoji: '📗', description: 'Как убеждать людей и защищаться от манипуляций.' },
+                    { id: 30, name: 'Грокаем алгоритмы (А. Бхаргава)', category: 'Книги', price: 12000, emoji: '💡', description: 'Иллюстрированное пособие для программистов и любознательных.' }
+                ],
+
+                history: [
+                    { id: 1, user: 'Роман', productName: 'Смартфон Nexus Pro 5G', category: 'Электроника', price: 299900, emoji: '📱', time: '19:15' },
+                    { id: 2, user: 'Алексей', productName: 'Чистый код (Р. Мартин)', category: 'Книги', price: 13500, emoji: '📘', time: '19:18' },
+                    { id: 3, user: 'Елена', productName: 'Кофемашина Barista Home', category: 'Дом и уюты', price: 125000, emoji: '☕', time: '19:22' }
+                ],
+
+                get filteredProducts() {
+                    return this.products.filter(p => {
+                        const matchesCategory = this.selectedCategory === 'Все' || p.category === this.selectedCategory;
+                        const matchesSearch = p.name.toLowerCase().includes(this.searchQuery.toLowerCase()) || 
+                                              p.description.toLowerCase().includes(this.searchQuery.toLowerCase());
+                        return matchesCategory && matchesSearch;
+                    });
+                },
+
+                buyProduct(product) {
+                    const now = new Date();
+                    // ИСПРАВЛЕНО: добавлен язык 'ru-RU'
+                    const timeString = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+                    this.history.unshift({
+                        id: Date.now(),
+                        user: this.currentUser,
+                        productName: product.name,
+                        category: product.category,
+                        price: product.price,
+                        emoji: product.emoji,
+                        time: timeString
+                    });
+
+                    this.notification.text = `${product.name} (${product.category})`;
+                    this.notification.show = true;
+                    setTimeout(() => {
+                        this.notification.show = false;
+                    }, 3000);
+                },
+
+                clearHistory() {
+                    // ИСПРАВЛЕНО: было this.history = ;
+                    this.history = [];
+                },
+
+                async getAIRecommendation(query) {
+                    try {
+                        const response = await fetch('/api/recommend', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ query: query })
+                        });
+
+                        if (!response.ok) throw new Error('Ошибка сети');
+                        return await response.json();
+                    } catch (error) {
+                        console.error('Ошибка связи с AI:', error);
+                        return null;
+                    }
+                },
+
+                async showRecommendation() {
+                    // ИСПРАВЛЕНО: теперь берем запрос из поля поиска или просим ввести
+                    let query = this.searchQuery.trim();
+                    if (!query) {
+                        query = prompt("Опишите, что хотите купить (например: 'хочу что-то почитать' или 'нужен подарок маме')");
+                    }
+
+                    if (!query) {
+                        alert('Запрос не введен.');
+                        return;
+                    }
+
+                    const result = await this.getAIRecommendation(query);
+
+                    if (result) {
+                        alert(`Категория: ${result.category}\nРекомендации:\n- ${result.recommendations.join('\n- ')}`);
+                    } else {
+                        alert('Не удалось получить рекомендацию от AI. Проверьте консоль браузера (F12).');
+                    }
+                }
+            };
+        }
+    </script>
+
+</body>
+</html>
+
+ 
+
+
